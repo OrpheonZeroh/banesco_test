@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETL Dashboard - Banesco Test</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔄 Date Enrichment</h1>
+            <p class="subtitle">Procesador de Datos: Usuarios + Pedidos + Clima</p>
+        </header>
+
+        <main>
+            <section class="control-panel">
+                <button id="processBtn" class="btn-primary">
+                    <span id="btnText">OBTENER INTEGRATION_OUTPUT.JSON</span>
+                    <div id="spinner" class="spinner hidden"></div>
+                </button>
+                
+                <div id="statusIndicator" class="status-indicator">
+                    <span id="statusText">Listo para procesar</span>
+                    <span id="statusDot" class="status-dot ready"></span>
+                </div>
+                
+                <div class="download-buttons hidden" id="downloadButtons">
+                    <button id="downloadBtn" class="btn-secondary">
+                        📥 Descargar JSON
+                    </button>
+                    
+                    <button id="viewResultBtn" class="btn-secondary">
+                        👁️ Ver Resultado
+                    </button>
+                    
+                    <a id="directDownloadLink" class="btn-link" href="/download" download="integration_output.json" target="_blank">
+                        🔗 Enlace Directo
+                    </a>
+                </div>
+            </section>
+
+            <section id="resultSection" class="result-section hidden">
+                <div class="result-header">
+                    <h3>📊 Resultado del Proceso ETL</h3>
+                    <div class="result-controls">
+                        <span id="resultStats" class="result-stats"></span>
+                        <button id="closeResultBtn" class="btn-small">✖️ Cerrar</button>
+                    </div>
+                </div>
+                
+                <div id="resultContainer" class="result-container">
+                    <pre id="resultContent" class="result-content"></pre>
+                </div>
+            </section>
+
+            <section class="logs-section">
+                <div class="logs-header">
+                    <h3>📋 Logs del Proceso</h3>
+                    <div class="logs-controls">
+                        <button id="clearLogsBtn" class="btn-small">🗑️ Limpiar</button>
+                        <button id="toggleAutoScrollBtn" class="btn-small active">📜 Auto-scroll</button>
+                    </div>
+                </div>
+                
+                <div id="logsContainer" class="logs-container">
+                    <div id="logsContent" class="logs-content">
+                        <div class="log-entry info">
+                            <span class="log-time">--:--:--</span>
+                            <span class="log-message">💡 Presiona el botón para iniciar el proceso ETL</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="connection-status">
+                <span id="connectionStatus">🔌 Desconectado</span>
+                <span id="clientCount"></span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
