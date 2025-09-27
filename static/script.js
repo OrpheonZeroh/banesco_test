@@ -1,5 +1,11 @@
 class ETLDashboard {
     constructor() {
+        this.processButton = null;
+        this.buttonText = null;
+        this.buttonSpinner = null;
+        this.loadingOverlay = null;
+        this.progressFill = null;
+        this.progressText = null;
         this.eventSource = null;
         this.autoScroll = true;
         this.isProcessing = false;
@@ -12,11 +18,16 @@ class ETLDashboard {
 
     initElements() {
         // Botones y controles
-        this.processBtn = document.getElementById('processBtn');
-        this.btnText = document.getElementById('btnText');
-        this.spinner = document.getElementById('spinner');
+        const processButton = document.getElementById('processBtn');
+        const buttonText = document.getElementById('btnText');
+        const buttonSpinner = document.getElementById('spinner');
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const progressPercent = document.getElementById('progressPercent');
         this.downloadBtn = document.getElementById('downloadBtn');
         this.viewResultBtn = document.getElementById('viewResultBtn');
+        this.deleteBtn = document.getElementById('deleteBtn');
         this.downloadButtons = document.getElementById('downloadButtons');
         this.directDownloadLink = document.getElementById('directDownloadLink');
         this.clearLogsBtn = document.getElementById('clearLogsBtn');
@@ -26,8 +37,8 @@ class ETLDashboard {
         // Indicadores de estado
         this.statusText = document.getElementById('statusText');
         this.statusDot = document.getElementById('statusDot');
-        this.connectionStatus = document.getElementById('connectionStatus');
-        this.clientCount = document.getElementById('clientCount');
+        this.connectionStatus = document.getElementById('connection-status');
+        this.clientCount = document.getElementById('process-status');
         
         // Logs
         this.logsContent = document.getElementById('logsContent');
@@ -36,15 +47,38 @@ class ETLDashboard {
         this.resultSection = document.getElementById('resultSection');
         this.resultContent = document.getElementById('resultContent');
         this.resultStats = document.getElementById('resultStats');
+        
+        this.processButton = processButton;
+        this.buttonText = buttonText;
+        this.buttonSpinner = buttonSpinner;
+        this.progressSection = progressSection;
+        this.progressFill = progressFill;
+        this.progressText = progressText;
+        this.progressPercent = progressPercent;
     }
 
     bindEvents() {
-        this.processBtn.addEventListener('click', () => this.processETL());
-        this.downloadBtn.addEventListener('click', () => this.downloadResult());
-        this.viewResultBtn.addEventListener('click', () => this.viewResult());
-        this.closeResultBtn.addEventListener('click', () => this.closeResult());
-        this.clearLogsBtn.addEventListener('click', () => this.clearLogs());
-        this.toggleAutoScrollBtn.addEventListener('click', () => this.toggleAutoScroll());
+        if (this.processButton) {
+            this.processButton.addEventListener('click', () => this.processETL());
+        }
+        if (this.downloadBtn) {
+            this.downloadBtn.addEventListener('click', () => this.downloadResult());
+        }
+        if (this.viewResultBtn) {
+            this.viewResultBtn.addEventListener('click', () => this.viewResult());
+        }
+        if (this.deleteBtn) {
+            this.deleteBtn.addEventListener('click', () => this.deleteFile());
+        }
+        if (this.closeResultBtn) {
+            this.closeResultBtn.addEventListener('click', () => this.closeResult());
+        }
+        if (this.clearLogsBtn) {
+            this.clearLogsBtn.addEventListener('click', () => this.clearLogs());
+        }
+        if (this.toggleAutoScrollBtn) {
+            this.toggleAutoScrollBtn.addEventListener('click', () => this.toggleAutoScroll());
+        }
     }
 
     async checkStatus() {
@@ -80,15 +114,17 @@ class ETLDashboard {
         
         this.eventSource.onmessage = (event) => {
             try {
-                const logData = JSON.parse(event.data);
-                
-                if (logData.type === 'ping') {
-                    return; // Ignorar pings
+                const data = JSON.parse(event.data);
+                if (data.type === 'log') {
+                    this.addLog(data.level, data.message);
+                    this.updateProgressFromLog(data.message);
+                } else if (data.type === 'complete') {
+                    this.downloadButtons.classList.remove('hidden');
+                    this.updateStatus('ready');
+                    this.updateProgress(100, 'Completado');
                 }
-                
-                this.addLogEntry(logData);
             } catch (error) {
-                console.error('Error parsing log data:', error);
+                console.error('Error parsing SSE data:', error);
             }
         };
         
@@ -108,30 +144,32 @@ class ETLDashboard {
         if (this.isProcessing) return;
         
         this.isProcessing = true;
-        this.updateStatus('running');
-        this.downloadButtons.classList.add('hidden');
-        this.closeResult();
-        
-        // Limpiar logs anteriores
+        this.updateProcessButton(true);
+        this.showProgressBar();
         this.clearLogs();
+        this.updateStatus('running');
         
         try {
             const response = await fetch('/process-etl', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const result = await response.json();
             
             if (response.ok) {
                 if (result.success) {
-                    this.updateStatus('success');
-                    this.downloadBtn.classList.remove('hidden');
-                    this.viewResultBtn.classList.remove('hidden');
+                    this.addLog('success', '✅ Proceso ETL completado exitosamente');
+                    this.downloadButtons.classList.remove('hidden');
+                    this.updateProgress(100, 'Proceso completado');
                 } else {
-                    this.updateStatus('error');
+                    this.addLog('error', `❌ Error: ${result.error}`);
                 }
             } else {
                 throw new Error(result.detail || 'Error processing ETL');
@@ -139,14 +177,14 @@ class ETLDashboard {
             
         } catch (error) {
             console.error('Error processing ETL:', error);
-            this.updateStatus('error');
-            this.addLogEntry({
-                timestamp: new Date().toLocaleTimeString(),
-                message: `❌ Error: ${error.message}`,
-                type: 'error'
-            });
+            this.addLog('error', `❌ Error de conexión: ${error.message}`);
         } finally {
-            this.isProcessing = false;
+            setTimeout(() => {
+                this.hideProgressBar();
+                this.isProcessing = false;
+                this.updateProcessButton(false);
+                this.updateStatus('ready');
+            }, 1000);
         }
     }
 
@@ -263,43 +301,68 @@ class ETLDashboard {
         this.resultSection.classList.add('hidden');
     }
 
-    addLogEntry(logData) {
-        const logEntry = document.createElement('div');
-        logEntry.className = `log-entry ${logData.type}`;
-        
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'log-time';
-        timeSpan.textContent = logData.timestamp;
-        
-        const messageSpan = document.createElement('span');
-        messageSpan.className = 'log-message';
-        messageSpan.textContent = logData.message;
-        
-        logEntry.appendChild(timeSpan);
-        logEntry.appendChild(messageSpan);
-        
-        this.logsContent.appendChild(logEntry);
-        
-        // Auto-scroll si está habilitado
-        if (this.autoScroll) {
-            logEntry.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    async deleteFile() {
+        if (!confirm('¿Estás seguro de que quieres eliminar el archivo integration_output.json?')) {
+            return;
         }
         
-        // Limitar número de logs (mantener últimos 500)
-        const logEntries = this.logsContent.querySelectorAll('.log-entry');
-        if (logEntries.length > 500) {
-            logEntries[0].remove();
+        try {
+            this.addLog('info', '🗑️ Eliminando archivo...');
+            
+            const response = await fetch('/delete-output', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                this.addLog('success', `✅ ${result.message}`);
+                this.downloadButtons.classList.add('hidden');
+                this.resultSection.classList.add('hidden');
+            } else {
+                const error = await response.json();
+                this.addLog('error', `❌ Error: ${error.detail}`);
+            }
+            
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            this.addLog('error', `❌ Error de conexión: ${error.message}`);
+        }
+    }
+
+    addLog(level, message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${level}`;
+        
+        logEntry.innerHTML = `
+            <span class="log-time">${timestamp}</span>
+            <span class="log-message">${message}</span>
+        `;
+        
+        if (this.logsContent) {
+            this.logsContent.appendChild(logEntry);
+            
+            if (this.autoScroll) {
+                logEntry.scrollIntoView({ behavior: 'smooth' });
+            }
+        } else {
+            console.log(`[${level.toUpperCase()}] ${timestamp}: ${message}`);
         }
     }
 
     clearLogs() {
         // Mantener solo el mensaje inicial
-        this.logsContent.innerHTML = `
-            <div class="log-entry info">
-                <span class="log-time">--:--:--</span>
-                <span class="log-message">💡 Logs limpios - Listo para nuevo proceso</span>
-            </div>
-        `;
+        if (this.logsContent) {
+            this.logsContent.innerHTML = `
+                <div class="log-entry info">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-message">💡 Logs limpios - Listo para nuevo proceso</span>
+                </div>
+            `;
+        }
     }
 
     toggleAutoScroll() {
@@ -332,16 +395,17 @@ class ETLDashboard {
         
         // Actualizar dot
         this.statusDot.className = `status-dot ${status}`;
-        
-        // Actualizar botón
-        if (status === 'running') {
-            this.processBtn.disabled = true;
-            this.btnText.textContent = 'PROCESANDO...';
-            this.spinner.classList.remove('hidden');
+    }
+
+    updateProcessButton(isLoading) {
+        if (isLoading) {
+            this.buttonText.textContent = 'Procesando...';
+            this.buttonSpinner.classList.remove('hidden');
+            this.processButton.disabled = true;
         } else {
-            this.processBtn.disabled = false;
-            this.btnText.textContent = 'OBTENER INTEGRATION_OUTPUT.JSON';
-            this.spinner.classList.add('hidden');
+            this.buttonText.textContent = 'OBTENER INTEGRATION_OUTPUT.JSON';
+            this.buttonSpinner.classList.add('hidden');
+            this.processButton.disabled = false;
         }
     }
 
@@ -360,6 +424,35 @@ class ETLDashboard {
             this.clientCount.textContent = `👥 ${count} cliente${count > 1 ? 's' : ''} conectado${count > 1 ? 's' : ''}`;
         } else {
             this.clientCount.textContent = '';
+        }
+    }
+
+    showProgressBar() {
+        this.progressSection.classList.remove('hidden');
+        this.updateProgress(0, 'Iniciando proceso ETL...');
+    }
+
+    hideProgressBar() {
+        this.progressSection.classList.add('hidden');
+    }
+
+    updateProgress(percentage, text) {
+        this.progressFill.style.width = `${percentage}%`;
+        this.progressText.textContent = text;
+        this.progressPercent.textContent = `${Math.round(percentage)}%`;
+    }
+
+    updateProgressFromLog(message) {
+        console.log('Checking progress for message:', message); // Debug
+        
+        if (message.includes('Descargando usuarios') || message.includes('usuarios')) {
+            this.updateProgress(25, 'Descargando usuarios...');
+        } else if (message.includes('pedidos') || message.includes('CSV')) {
+            this.updateProgress(50, 'Procesando pedidos...');
+        } else if (message.includes('clima') || message.includes('weather') || message.includes('Enriqueciendo')) {
+            this.updateProgress(75, 'Obteniendo datos del clima...');
+        } else if (message.includes('Escribiendo JSON') || message.includes('Listo') || message.includes('✅')) {
+            this.updateProgress(95, 'Generando reporte final...');
         }
     }
 

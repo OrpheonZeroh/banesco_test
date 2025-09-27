@@ -256,22 +256,30 @@ async def stream_logs(request: Request):
     )
 
 @app.get("/download")
-async def download_result():
-    """Descargar el archivo JSON resultado"""
+async def download_file():
+    """Descargar el archivo de resultado"""
     output_file = Path("output/integration_output.json")
-    
     if not output_file.exists():
-        raise HTTPException(status_code=404, detail="Output file not found. Run ETL process first.")
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
     
     return FileResponse(
-        path=str(output_file),
+        path=output_file,
         filename="integration_output.json",
-        media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": "attachment; filename=\"integration_output.json\"",
-            "Content-Type": "application/octet-stream"
-        }
+        media_type='application/json'
     )
+
+@app.delete("/delete-output")
+async def delete_output_file():
+    """Eliminar el archivo de resultado"""
+    output_file = Path("output/integration_output.json")
+    try:
+        if output_file.exists():
+            output_file.unlink()
+            return {"success": True, "message": "Archivo eliminado exitosamente"}
+        else:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar archivo: {str(e)}")
 
 @app.get("/download-direct")
 async def download_direct():

@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔄 Date Enrichment</h1>
+            <h1>🔄 Data Enrichment</h1>
             <p class="subtitle">Procesador de Datos: Usuarios + Pedidos + Clima</p>
         </header>
 
@@ -25,17 +25,28 @@
                     <span id="statusDot" class="status-dot ready"></span>
                 </div>
                 
+                <!-- Progress Bar -->
+                <div id="progressSection" class="progress-section hidden">
+                    <div class="progress-info">
+                        <span id="progressText" class="progress-text">Iniciando...</span>
+                        <span id="progressPercent" class="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                </div>
+                
                 <div class="download-buttons hidden" id="downloadButtons">
-                    <button id="downloadBtn" class="btn-secondary">
-                        📥 Descargar JSON
-                    </button>
-                    
                     <button id="viewResultBtn" class="btn-secondary">
                         👁️ Ver Resultado
                     </button>
                     
+                    <button id="deleteBtn" class="btn-danger">
+                        🗑️ Eliminar Archivo
+                    </button>
+                    
                     <a id="directDownloadLink" class="btn-link" href="/download" download="integration_output.json" target="_blank">
-                        🔗 Enlace Directo
+                        🔗 Descargar
                     </a>
                 </div>
             </section>
@@ -75,9 +86,23 @@
         </main>
 
         <footer>
-            <div class="connection-status">
-                <span id="connectionStatus">🔌 Desconectado</span>
-                <span id="clientCount"></span>
+            <div class="status-indicator">
+                <span id="connection-status">⚪ Desconectado</span>
+                <span id="process-status">⚪ Inactivo</span>
+            </div>
+            
+            <!-- Loading Animation -->
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="spinner-container">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Procesando ETL...</div>
+                    <div class="loading-progress">
+                        <div class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                        <div id="progress-text" class="progress-text">Iniciando...</div>
+                    </div>
+                </div>
             </div>
         </footer>
     </div>

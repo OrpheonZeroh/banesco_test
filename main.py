@@ -37,7 +37,7 @@ def to_float_or_none(x: Any) -> Optional[float]:
         return None
 
 # ---------- HTTP genérico ----------
-async def fetch_json(session: aiohttp.ClientSession, url: str, params: Dict[str, Any] = None, retries: int = 3, timeout: int = 20) -> Any:
+async def fetch_json(session: aiohttp.ClientSession, url: str, params: Dict[str, Any] = None, retries: int = 2, timeout: int = 1) -> Any:
     params = params or {}
     for attempt in range(retries):
         try:
@@ -47,7 +47,7 @@ async def fetch_json(session: aiohttp.ClientSession, url: str, params: Dict[str,
         except (aiohttp.ClientError, asyncio.TimeoutError):
             if attempt == retries - 1:
                 raise
-            await asyncio.sleep(2 ** attempt)  # backoff exponencial
+            await asyncio.sleep(0.5)  # backoff rápido para producción
 
 # ---------- Fuentes de datos ----------
 async def get_users(session: aiohttp.ClientSession) -> List[Dict[str, Any]]:
@@ -69,11 +69,10 @@ async def get_users(session: aiohttp.ClientSession) -> List[Dict[str, Any]]:
 
 async def get_weather_for(session: aiohttp.ClientSession, lat: Optional[float], lon: Optional[float]) -> Dict[str, Any]:
     if not OPENWEATHER_API_KEY:
-        LOG.warning("OWM: OPENWEATHER_API_KEY no está definida; devolviendo null.")
         return {"main": None, "temperature_celsius": None}
     if lat is None or lon is None:
-        LOG.warning("OWM: coords inválidas lat=%s lon=%s; devolviendo null.", lat, lon)
         return {"main": None, "temperature_celsius": None}
+    
     params = {"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY}
     try:
         w = await fetch_json(session, WEATHER_URL, params=params)
@@ -179,7 +178,7 @@ def aggregate_sales(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------- Orquestación ----------
-async def main(orders_csv: str, output_json: str, concurrency: int = 10):
+async def main(orders_csv: str, output_json: str, concurrency: int = 20):
     # Sesión HTTP compartida
     timeout = aiohttp.ClientTimeout(total=60)
     connector = aiohttp.TCPConnector(limit=concurrency)
